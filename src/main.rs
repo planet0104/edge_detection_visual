@@ -11,6 +11,9 @@ use sdl2::render::WindowCanvas;
 use sdl2::pixels::Color;
 use sdl2::mouse::MouseWheelDirection;
 
+// 边缘检测的窗口测试
+// 使用鼠标滚轮或者方向键调整阈值
+
 pub fn main() {
     let bitmap = lodepng::decode24_file("image.png").unwrap();
     let (width, height) = (bitmap.width, bitmap.height);
