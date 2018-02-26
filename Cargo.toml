@@ -1,0 +1,12 @@
+[package]
+name = "edge_detection_visual"
+version = "0.1.0"
+authors = ["Jia Ye <planet0104@gmail.com>"]
+
+[dependencies]
+lodepng = "*"
+
+[dependencies.sdl2]
+    version = "0.31"
+    default-features = false
+    features = []
