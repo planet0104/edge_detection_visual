@@ -1,3 +1,4 @@
+//#![no_main] //调用WinMain函数取消注释
 extern crate sdl2;
 extern crate lodepng;
 
@@ -13,6 +14,19 @@ use sdl2::mouse::MouseWheelDirection;
 
 // 边缘检测的窗口测试
 // 使用鼠标滚轮或者方向键调整阈值
+
+
+/*
+
+//windows系统调用WinMain函数
+#[no_mangle]
+#[allow(non_snake_case)]
+pub extern fn WinMain() -> i32 {
+    main();
+    0
+}
+
+*/
 
 pub fn main() {
     let bitmap = lodepng::decode24_file("image.png").unwrap();
