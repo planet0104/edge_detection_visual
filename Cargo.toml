@@ -7,6 +7,5 @@ authors = ["Jia Ye <planet0104@gmail.com>"]
 lodepng = "*"
 
 [dependencies.sdl2]
-    version = "0.31"
-    default-features = false
-    features = []
+version = "0.31.0"
+features = ["bundled", "static-link"]

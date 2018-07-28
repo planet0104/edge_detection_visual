@@ -1,4 +1,3 @@
-//#![no_main] //调用WinMain函数取消注释
 extern crate sdl2;
 extern crate lodepng;
 
@@ -15,21 +14,18 @@ use sdl2::mouse::MouseWheelDirection;
 // 边缘检测的窗口测试
 // 使用鼠标滚轮或者方向键调整阈值
 
-
 /*
-
-//windows系统调用WinMain函数
-#[no_mangle]
-#[allow(non_snake_case)]
-pub extern fn WinMain() -> i32 {
-    main();
-    0
-}
-
+1.首先将图片色块化(相近的颜色统一为一种颜色/颜色相似度算法)
+2.边缘检测(视网膜算法)
+3.检测边缘线(八邻域边缘跟踪与区域生长算法)
+https://blog.csdn.net/sinat_31425585/article/details/78558849
+5.画线，合并多边形
+图片资源:
+https://weheartit.com/
 */
 
 pub fn main() {
-    let bitmap = lodepng::decode24_file("image.png").unwrap();
+    let bitmap = lodepng::decode24_file("tubingen.png").unwrap();
     let (width, height) = (bitmap.width, bitmap.height);
     println!("width={},height={}", width, height);
 
