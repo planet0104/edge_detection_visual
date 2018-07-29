@@ -4,7 +4,7 @@ version = "0.1.0"
 authors = ["Jia Ye <planet0104@gmail.com>"]
 
 [dependencies]
-lodepng = "*"
+image = "*"
 
 [dependencies.sdl2]
 version = "0.31.0"
