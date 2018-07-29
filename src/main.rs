@@ -5,20 +5,11 @@ mod retina;
 
 use retina::edge_detect;
 
-use std::fs::File;
-use std::path;
-use std::io;
-use image::GenericImage;
-use std::env;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
-use sdl2::surface::Surface;
 use sdl2::rect::Point;
 use sdl2::render::WindowCanvas;
 use sdl2::pixels::Color;
-use sdl2::mouse::MouseWheelDirection;
-use image::RgbaImage;
-use image::ColorType;
 use image::ImageBuffer;
 use image::Rgb;
 use std::time::{Duration, Instant};
@@ -36,11 +27,23 @@ https://blog.csdn.net/sinat_31425585/article/details/78558849
 https://weheartit.com/
 */
 
+/**
+ 
+ PS实验1： 
+    选择 滤镜->像素化->彩块化, 可以将图片转换成彩色快，这些彩块其实就可以转换成矢量图。
+    多次进行彩块化以后，色块变大，这时候再去检测图像边缘，不同阈值时边缘波动小。
+
+ PS实验2:
+    选择 图像->色调分离，可以将图像颜色减少。同时图像边缘更清晰。
+    色调分离以后，在进行 滤镜->(像素化->彩块化)，或者滤镜库的涂抹效果，也可以清晰图像边缘。
+
+
+ */
 pub fn main() {
 
-    let img = image::open("tubingen.png").unwrap().to_rgb();
+    let img = image::open("tubingen_color_block.png").unwrap().to_rgb();
 
-    let (width, height) = (img.width() as usize, img.height() as usize);
+    let (width, height) = (img.width(), img.height());
     println!("width={},height={}", width, height);
 
     let buf = img.into_raw();
@@ -62,9 +65,7 @@ pub fn main() {
     // let img:ImageBuffer<Rgb<u8>, Vec<u8>> = ImageBuffer::from_raw(width as u32, height as u32, buffer).unwrap();
     // img.save("test.png").unwrap();
 
-    let bpp = 24;
-
-    draw_edge(&buf, width, height, bpp, threshold, &mut canvas);
+    draw_edge(&buf, width, height, threshold, &mut canvas);
 
     'mainloop: loop {
             for event in sdl_context.event_pump().unwrap().poll_iter() {
@@ -76,13 +77,13 @@ pub fn main() {
                     Event::KeyDown {keycode: Option::Some(Keycode::Down), ..} |
                     Event::KeyDown {keycode: Option::Some(Keycode::Left), ..} =>{
                         threshold -= 1.0;
-                        draw_edge(&buf, width, height, bpp, threshold, &mut canvas);
+                        draw_edge(&buf, width, height, threshold, &mut canvas);
                     }
 
                     Event::KeyDown {keycode: Option::Some(Keycode::Up), ..} |
                     Event::KeyDown {keycode: Option::Some(Keycode::Right), ..} =>{
                         threshold += 1.0;
-                        draw_edge(&buf, width, height, bpp, threshold, &mut canvas);
+                        draw_edge(&buf, width, height, threshold, &mut canvas);
                     }
 
                     Event::MouseWheel {y, ..} =>{
@@ -92,7 +93,7 @@ pub fn main() {
                             1 => 1.0,
                             _ => 0.0
                         };
-                        draw_edge(&buf, width, height, bpp, threshold, &mut canvas);
+                        draw_edge(&buf, width, height, threshold, &mut canvas);
                     }
                     _ => {}
                 }
@@ -100,7 +101,7 @@ pub fn main() {
     }
 }
 
-fn draw_edge(bitmap:&Vec<u8>, width:usize, height:usize, bpp:usize, mut threshold:f32, canvas:&mut WindowCanvas){
+fn draw_edge(bitmap:&Vec<u8>, width:u32, height:u32, mut threshold:f32, canvas:&mut WindowCanvas){
     if threshold>255.0{
         threshold = 255.0;
     }
@@ -111,10 +112,10 @@ fn draw_edge(bitmap:&Vec<u8>, width:usize, height:usize, bpp:usize, mut threshol
     //提取边缘
     let start_time = Instant::now();
     let mut buffer = vec![0; bitmap.len()];
-    edge_detect(width, height, bpp, bitmap, &mut buffer, threshold, &[255, 0, 0, 255]);
+    edge_detect(width, height, bitmap, &mut buffer, threshold, &[255, 0, 0]);
     println!("耗时:{}ms", duration_to_milis(&start_time.elapsed()));
 
-    let img:ImageBuffer<Rgb<u8>, Vec<u8>> = ImageBuffer::from_raw(width as u32, height as u32, buffer).unwrap();
+    let img:ImageBuffer<Rgb<u8>, Vec<u8>> = ImageBuffer::from_raw(width, height, buffer).unwrap();
 
     //清空窗口
     canvas.set_draw_color(Color::RGB(0, 0, 0));
@@ -123,7 +124,7 @@ fn draw_edge(bitmap:&Vec<u8>, width:usize, height:usize, bpp:usize, mut threshol
     canvas.set_draw_color(Color::RGB(255, 255, 255));
     for y in 0..height{
         for x in 0..width{
-            let pixel = img.get_pixel(x as u32, y as u32);
+            let pixel = img.get_pixel(x, y);
             if pixel[0] == 255{
                 canvas.draw_point(Point::new(x as i32, y as i32)).unwrap();
             }

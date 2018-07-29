@@ -25,20 +25,18 @@
     B和H的输出，根据亮度计算,如果像素亮度超过阈值，B输出255，H输出-255，没有超过阈值，二者都输出0。
 */
 
-
-/// 边缘检测
+/// RGB888格式图像边缘检测
 ///
 /// # Params
 ///
 /// - `width`: 图像宽度.
 /// - `height`: 图像宽度.
-/// - `bpp`: 像素深度 24或32
 /// - `src`: 图像数据.
 /// - `out`: 输出，数组长度和原图像一致
 /// - `threshold`: 阈值 0~255
 /// - `out_color`: 输出颜色
-pub fn edge_detect(width:usize, _height:usize, bpp: usize, src:&Vec<u8>, out:&mut Vec<u8>, threshold:f32, out_color: &[u8; 4]){
-    let bytepp = bpp/8;
+pub fn edge_detect(width:u32, _height:u32, src:&Vec<u8>, out:&mut Vec<u8>, threshold:f32, out_color: &[u8; 3]){
+    let bytepp = 3; //RGB888
     let size = src.len();
     let src = src.as_slice();
     let out = out.as_mut_slice();
@@ -48,7 +46,7 @@ pub fn edge_detect(width:usize, _height:usize, bpp: usize, src:&Vec<u8>, out:&mu
     while i<size{
         let (b1,b2,b3) = (i, i+1, i+2);
         let hrid = i+bytepp;
-        let hbid = i+bytepp*width;
+        let hbid = i+bytepp*width as usize;
         let b_out = calc_bipolar_cell(src[b1], src[b2], src[b3], threshold);
         
         if hrid<size && hbid < size{
@@ -59,9 +57,6 @@ pub fn edge_detect(width:usize, _height:usize, bpp: usize, src:&Vec<u8>, out:&mu
                 out[b1] = out_color[0];
                 out[b2] = out_color[1];
                 out[b3] = out_color[2];
-                if bytepp>3{
-                    out[b3+1] = out_color[3];
-                }
             }
         }
         i += bytepp;
@@ -84,4 +79,39 @@ fn calc_horizontal_cell(r: u8, g:u8, b:u8, threshold: f32) -> f32{
     }else{
         1.0
     }
+}
+
+//相近颜色转换为同一颜色
+pub fn facet(width:u32, height:u32, src:&Vec<u8>, out:&mut Vec<u8>){
+    // let bytepp = 3; //RGB888
+    // let size = src.len();
+    // let src = src.as_slice();
+    // let out = out.as_mut_slice();
+
+    // let mut i = 0;
+
+    // while i<size{
+    //     let (b1,b2,b3) = (i, i+1, i+2);
+    //     let hrid = i+bytepp;
+    //     let hbid = i+bytepp*width as usize;
+    //     let b_out = calc_bipolar_cell(src[b1], src[b2], src[b3], threshold);
+        
+    //     if hrid<size && hbid < size{
+    //         let hr_out = calc_horizontal_cell(src[hrid], src[hrid+1], src[hrid+2], threshold);
+    //         let hb_out = calc_horizontal_cell(src[hbid], src[hbid+1], src[hbid+2], threshold);
+
+    //         if b_out*2.0+hr_out+hb_out != 0.0{
+    //             out[b1] = out_color[0];
+    //             out[b2] = out_color[1];
+    //             out[b3] = out_color[2];
+    //         }
+    //     }
+    //     i += bytepp;
+    // }
+}
+
+//简单计算颜色距离
+//最大距离: 255*255*3=195075 二进制: 00000000_00000010_11111010_00000011
+fn color_diff(r1: u8, g1:u8, b1: u8, r2: u8, g2:u8, b2: u8) -> u32{
+    ((r2 as i32-r1 as i32)*(r2 as i32-r1 as i32) + (g2 as i32-g1 as i32)*(g2 as i32-g1 as i32) + (b2 as i32-b1 as i32)*(b2 as i32-b1 as i32)) as u32
 }
