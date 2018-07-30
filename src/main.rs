@@ -27,6 +27,17 @@ https://blog.csdn.net/sinat_31425585/article/details/78558849
 https://weheartit.com/
 */
 
+
+/**
+    http://autotrace.sourceforge.net/ bitmap转svg
+    http://potrace.sourceforge.net/ bitmap转svg
+
+    http://jhlabs.com/ip/filters/PosterizeFilter.html 减少颜色通道
+    http://jhlabs.com/ip/filters/SmearFilter.html 像素涂抹
+    http://jhlabs.com/ip/filters/ReduceNoiseFilter.html 8邻降噪
+
+ */
+
 /**
  
  PS实验1： 
@@ -37,27 +48,39 @@ https://weheartit.com/
     选择 图像->色调分离，可以将图像颜色减少。同时图像边缘更清晰。
     色调分离以后，在进行 滤镜->(像素化->彩块化)，或者滤镜库的涂抹效果，也可以清晰图像边缘。
 
+    测试2:
+            1、首先在不同的阈值下进行线条检测
+            2、每次检测完成，将较短的线条删除
 
  */
 pub fn main() {
-
-    let img = image::open("tubingen_color_block.png").unwrap().to_rgb();
+    //tubingen
+    let img = image::open("tubingen.png").unwrap().to_rgb();
 
     let (width, height) = (img.width(), img.height());
     println!("width={},height={}", width, height);
 
     let buf = img.into_raw();
+    let mut out = vec![0; buf.len()];
 
-    let sdl_context = sdl2::init().unwrap();
-    let video_subsystem = sdl_context.video().unwrap();
+    retina::facet(width, height, 2, &buf, &mut out);
+
+    let img:ImageBuffer<Rgb<u8>, Vec<u8>> = ImageBuffer::from_raw(width, height, out).unwrap();
+    img.save("test.png").unwrap();
+
+
     
-    let window = video_subsystem.window("边缘检测", width as u32, height as u32)
-      .position_centered()
-      .build()
-      .unwrap();
 
-    let mut canvas = window.into_canvas().build().unwrap();
-    let mut threshold = 127.5;
+    // let sdl_context = sdl2::init().unwrap();
+    // let video_subsystem = sdl_context.video().unwrap();
+    
+    // let window = video_subsystem.window("边缘检测", width as u32, height as u32)
+    //   .position_centered()
+    //   .build()
+    //   .unwrap();
+
+    // let mut canvas = window.into_canvas().build().unwrap();
+    // let mut threshold = 127.5;
 
     //提取边缘
     // let mut buffer = vec![0; buf.len()];
@@ -65,40 +88,40 @@ pub fn main() {
     // let img:ImageBuffer<Rgb<u8>, Vec<u8>> = ImageBuffer::from_raw(width as u32, height as u32, buffer).unwrap();
     // img.save("test.png").unwrap();
 
-    draw_edge(&buf, width, height, threshold, &mut canvas);
+    // draw_edge(&buf, width, height, threshold, &mut canvas);
 
-    'mainloop: loop {
-            for event in sdl_context.event_pump().unwrap().poll_iter() {
-                match event {
-                    Event::Quit{..} |
-                    Event::KeyDown {keycode: Option::Some(Keycode::Escape), ..} =>
-                        break 'mainloop,
+    // 'mainloop: loop {
+    //         for event in sdl_context.event_pump().unwrap().poll_iter() {
+    //             match event {
+    //                 Event::Quit{..} |
+    //                 Event::KeyDown {keycode: Option::Some(Keycode::Escape), ..} =>
+    //                     break 'mainloop,
 
-                    Event::KeyDown {keycode: Option::Some(Keycode::Down), ..} |
-                    Event::KeyDown {keycode: Option::Some(Keycode::Left), ..} =>{
-                        threshold -= 1.0;
-                        draw_edge(&buf, width, height, threshold, &mut canvas);
-                    }
+    //                 Event::KeyDown {keycode: Option::Some(Keycode::Down), ..} |
+    //                 Event::KeyDown {keycode: Option::Some(Keycode::Left), ..} =>{
+    //                     threshold -= 1.0;
+    //                     draw_edge(&buf, width, height, threshold, &mut canvas);
+    //                 }
 
-                    Event::KeyDown {keycode: Option::Some(Keycode::Up), ..} |
-                    Event::KeyDown {keycode: Option::Some(Keycode::Right), ..} =>{
-                        threshold += 1.0;
-                        draw_edge(&buf, width, height, threshold, &mut canvas);
-                    }
+    //                 Event::KeyDown {keycode: Option::Some(Keycode::Up), ..} |
+    //                 Event::KeyDown {keycode: Option::Some(Keycode::Right), ..} =>{
+    //                     threshold += 1.0;
+    //                     draw_edge(&buf, width, height, threshold, &mut canvas);
+    //                 }
 
-                    Event::MouseWheel {y, ..} =>{
-                        threshold += 
-                        match y{
-                            -1 => -1.0,
-                            1 => 1.0,
-                            _ => 0.0
-                        };
-                        draw_edge(&buf, width, height, threshold, &mut canvas);
-                    }
-                    _ => {}
-                }
-            }
-    }
+    //                 Event::MouseWheel {y, ..} =>{
+    //                     threshold += 
+    //                     match y{
+    //                         -1 => -1.0,
+    //                         1 => 1.0,
+    //                         _ => 0.0
+    //                     };
+    //                     draw_edge(&buf, width, height, threshold, &mut canvas);
+    //                 }
+    //                 _ => {}
+    //             }
+    //         }
+    // }
 }
 
 fn draw_edge(bitmap:&Vec<u8>, width:u32, height:u32, mut threshold:f32, canvas:&mut WindowCanvas){
