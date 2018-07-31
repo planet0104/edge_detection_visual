@@ -1,0 +1,3 @@
+dll转lib
+.\pexports.exe C:\Windows\SysWOW64\opencl.dll >opencl.def
+.\lib.exe /def:C:\Users\JiaYe\vcpkg\downloads\tools\perl\c\bin\opencl.def /machine:X64

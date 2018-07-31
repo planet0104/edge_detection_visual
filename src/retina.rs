@@ -1,6 +1,63 @@
 pub struct Point{
-    x: u32,
-    y: u32,
+    pub x: i16,
+    pub y: i16,
+}
+
+impl Point{
+    pub fn new(x: i16, y:i16) -> Point{
+        Point{x, y}
+    }
+
+    pub fn from_usize(x: usize, y: usize) -> Point{
+        Point{x: x as i16, y: y as i16}
+    }
+}
+
+impl Clone for Point{
+    fn clone(&self) -> Point{
+        Point{
+            x: self.x,
+            y: self.y
+        }
+    }
+}
+
+pub trait EdgePoints{
+    fn width(&self) -> usize;
+    fn height(&self) -> usize;
+    fn widthi(&self) -> i16;
+    fn heighti(&self) -> i16;
+    fn at(&mut self, x: i16, y: i16) -> &mut bool;
+    fn atu(&mut self, x: usize, y: usize) -> &mut bool;
+}
+
+impl EdgePoints for Vec<Vec<bool>>{
+    fn at(&mut self, x: i16, y: i16) -> &mut bool{
+        &mut self[x as usize][y as usize]
+    }
+    fn atu(&mut self, x: usize, y: usize) -> &mut bool{
+        &mut self[x][y]
+    }
+    fn width(&self) -> usize{
+        self.len()
+    }
+    fn height(&self) -> usize{
+        if self.len()>0{
+            self[0].len()
+        }else{
+            0
+        }
+    }
+    fn widthi(&self) -> i16{
+        self.len() as i16
+    }
+    fn heighti(&self) -> i16{
+        if self.len()>0{
+            self[0].len() as i16
+        }else{
+            0
+        }
+    }
 }
 
 /*
@@ -30,6 +87,24 @@ pub struct Point{
     B和H的输出，根据亮度计算,如果像素亮度超过阈值，B输出255，H输出-255，没有超过阈值，二者都输出0。
 */
 
+
+/// RGB888格式图像边缘检测
+///
+/// # Params
+///
+/// - `width`: 图像宽度.
+/// - `src`: 图像数据.
+/// - `out`: 输出，数组长度和原图像一致
+/// - `threshold`: 阈值 0~255
+/// - `out_color`: 输出颜色
+pub fn edge_detect_draw(width:u32, src:&Vec<u8>, out:&mut Vec<u8>, thresholds:Vec<u8>, out_color: &[u8; 3]){
+    edge_detect(width, src, thresholds, &mut |i|{
+        out[i] = out_color[0];
+        out[i+1] = out_color[1];
+        out[i+2] = out_color[2];
+    });
+}
+
 /// RGB888格式图像边缘检测
 ///
 /// # Params
@@ -37,34 +112,52 @@ pub struct Point{
 /// - `width`: 图像宽度.
 /// - `height`: 图像宽度.
 /// - `src`: 图像数据.
-/// - `out`: 输出，数组长度和原图像一致
+/// - `thresholds`: 阈值 0~255
+/// 使用 result[x][y] 来获取点
+pub fn edge_detect_points(width:u32, height:u32, src:&Vec<u8>, thresholds:Vec<u8>) -> Vec<Vec<bool>>{
+
+    let mut edges = vec![vec![false; height as usize]; width as usize];
+
+    edge_detect(width, src, thresholds, &mut |i|{
+        let x = i/3%width as usize;
+        let y = i/3/width as usize;
+        edges[x][y] = true;
+    });
+
+    edges
+}
+
+/// RGB888格式图像边缘检测
+///
+/// # Params
+///
+/// - `width`: 图像宽度.
+/// - `src`: 图像数据.
 /// - `threshold`: 阈值 0~255
-/// - `out_color`: 输出颜色
-pub fn edge_detect(width:u32, _height:u32, src:&Vec<u8>, out:&mut Vec<u8>, threshold:f32, out_color: &[u8; 3]){
+/// - `callback`: 检测到点的回调函数
+pub fn edge_detect<F: FnMut(usize)>(width:u32, src:&Vec<u8>, thresholds:Vec<u8>, callback: &mut F){
     let bytepp = 3; //RGB888
     let size = src.len();
     let src = src.as_slice();
-    let out = out.as_mut_slice();
 
-    let mut i = 0;
+    for threshold in thresholds{
+        let mut i = 0;
+        while i<size{
+            let (b1,b2,b3) = (i, i+1, i+2);
+            let hrid = i+bytepp;
+            let hbid = i+bytepp*width as usize;
+            let b_out = calc_bipolar_cell(src[b1], src[b2], src[b3], threshold as f32);
+            
+            if hrid<size && hbid < size{
+                let hr_out = calc_horizontal_cell(src[hrid], src[hrid+1], src[hrid+2], threshold as f32);
+                let hb_out = calc_horizontal_cell(src[hbid], src[hbid+1], src[hbid+2], threshold as f32);
 
-    while i<size{
-        let (b1,b2,b3) = (i, i+1, i+2);
-        let hrid = i+bytepp;
-        let hbid = i+bytepp*width as usize;
-        let b_out = calc_bipolar_cell(src[b1], src[b2], src[b3], threshold);
-        
-        if hrid<size && hbid < size{
-            let hr_out = calc_horizontal_cell(src[hrid], src[hrid+1], src[hrid+2], threshold);
-            let hb_out = calc_horizontal_cell(src[hbid], src[hbid+1], src[hbid+2], threshold);
-
-            if b_out*2.0+hr_out+hb_out != 0.0{
-                out[b1] = out_color[0];
-                out[b2] = out_color[1];
-                out[b3] = out_color[2];
+                if b_out*2.0+hr_out+hb_out != 0.0{
+                    callback(i);
+                }
             }
+            i += bytepp;
         }
-        i += bytepp;
     }
 }
 
@@ -84,6 +177,25 @@ fn calc_horizontal_cell(r: u8, g:u8, b:u8, threshold: f32) -> f32{
     }else{
         1.0
     }
+}
+
+pub fn vectorize(contours: &Vec<Vec<Point>>, min_distance:f32) -> Vec<Vec<Point>>{
+    let mut lines = vec![];
+
+    for contour in contours{
+        let mut points = vec![contour[0].clone()];
+        for i in 1..contour.len(){
+            let pi = points.len()-1;
+            let dist = (points[pi].x - contour[i].x)*(points[pi].x - contour[i].x)+(points[pi].y - contour[i].y)*(points[pi].y - contour[i].y);
+            if (dist as f32).sqrt() >= min_distance{
+                points.push(contour[i].clone());
+            }
+        }
+
+        lines.push(points);
+    }
+
+    lines
 }
 
 //相近颜色转换为同一颜色
@@ -289,65 +401,58 @@ fn color_diff(r1: u8, g1:u8, b1: u8, r2: u8, g2:u8, b2: u8) -> u32{
     ((r2 as i32-r1 as i32)*(r2 as i32-r1 as i32) + (g2 as i32-g1 as i32)*(g2 as i32-g1 as i32) + (b2 as i32-b1 as i32)*(b2 as i32-b1 as i32)) as u32
 }
 
-fn track_edge(width:u32, height:u32, src:&Vec<u8>)->Vec<Vec<Point>>{
-    let seeds:Vec<Point> = vec![];
-    let contour: Vec<Point> = vec![];
-    let contours: Vec<Vec<Point>> = vec![];
-    
-    
-	//int i, j, k;
-	for i in 0..height{
-		for j in 0..width{
-			Point c_pt = Point(i, j);
- 
+// 8邻域
+const NEIGHBORS:[Point; 8] = [ Point{ x:0, y:1 }, Point{ x:1, y:1}, Point{x:1, y:0}, Point{x:1, y:-1}, 
+                             Point{x:0, y:-1}, Point{x:-1, y:-1}, Point{x:-1, y:0}, Point{x:-1, y:1} ];
+
+pub fn track_edge(mut edges:Vec<Vec<bool>>)->Vec<Vec<Point>>{
+    let mut seeds:Vec<Point> = vec![];
+    let mut contours: Vec<Vec<Point>> = vec![];
+    for x in 0..edges.height(){
+		for y in 0..edges.width(){    
+	//for x in 0..edges.width(){
+//		for y in 0..edges.height(){
 			//如果当前点为轮廓点
-			if (edges.at<uchar>(c_pt.x, c_pt.y) == 255)
-			{
- 
-				contour.clear();
+			if edges[x][y]{
+                let mut contour: Vec<Point> = vec![];
 				// 当前点清零
-				edges.at<uchar>(c_pt.x, c_pt.y) = 0;
+                edges[x][y] = false;
  
 				// 存入种子点及轮廓
-				seeds.push_back(c_pt);
-				contour.push_back(c_pt);
+				seeds.push(Point::from_usize(x, y));
+				contour.push(Point::from_usize(x, y));
  
 				// 区域生长
-				while (seeds.size() > 0)
-				{
+				while seeds.len() > 0{
 					// 遍历8邻域
-					for (k = 0; k < 8; k++)
-					{	
+					for k in 0..8{
 						// 更新当前点坐标
-						c_pt.x = seeds[0].x + neighbors[k].x;
-						c_pt.y = seeds[0].y + neighbors[k].y;
+						let new_x = seeds[0].x + NEIGHBORS[k].x;
+						let new_y = seeds[0].y + NEIGHBORS[k].y;
  
 						// 边界界定
-						if ((c_pt.x >= 0)  && (c_pt.x <= edges.rows - 1) &&
-							(c_pt.y >= 0) && (c_pt.y <= edges.cols - 1))
-						{
-							if (edges.at<uchar>(c_pt.x, c_pt.y) == 255)
-							{
+						if (new_x >= 0)  && (new_x <= edges.widthi() - 1) &&
+							(new_y >= 0) && (new_y <= edges.heighti() - 1){
+							if *edges.at(new_x, new_y){
 								// 当前点清零
-								edges.at<uchar>(c_pt.x, c_pt.y) = 0;
+                                *edges.at(new_x, new_y) = false;
  
 								// 存入种子点及轮廓
-								seeds.push_back(c_pt);
-								contour.push_back(c_pt);
-							}// end if		
-						}										
+								seeds.push(Point::new(new_x, new_y));
+								contour.push(Point::new(new_x, new_y));
+							}// end if
+						}
 					} // end for
  
 					// 删除第一个元素
-					seeds.erase(seeds.begin());
+					seeds.remove(0);
  
 				}// end while
  
-				contours.push_back(contour);
+				contours.push(contour);
  
 			}// end if
 		}
     }
-
     contours
 }

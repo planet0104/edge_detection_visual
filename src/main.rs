@@ -1,17 +1,18 @@
 extern crate sdl2;
 extern crate image;
+extern crate rand;
+
+use rand::Rng;
 
 mod retina;
 
-use retina::edge_detect;
-
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
-use sdl2::rect::Point;
 use sdl2::render::WindowCanvas;
 use sdl2::pixels::Color;
 use image::ImageBuffer;
 use image::Rgb;
+use sdl2::rect::Point;
 use std::time::{Duration, Instant};
 
 // 边缘检测的窗口测试
@@ -55,32 +56,31 @@ https://weheartit.com/
  */
 pub fn main() {
     //tubingen
-    let img = image::open("tubingen.png").unwrap().to_rgb();
+    let img = image::open("maio.png").unwrap().to_rgb();
 
     let (width, height) = (img.width(), img.height());
     println!("width={},height={}", width, height);
 
     let buf = img.into_raw();
-    let mut out = vec![0; buf.len()];
+    //let mut out = vec![0; buf.len()];
 
-    retina::facet(width, height, 2, &buf, &mut out);
+    // retina::facet(width, height, 2, &buf, &mut out);
 
-    let img:ImageBuffer<Rgb<u8>, Vec<u8>> = ImageBuffer::from_raw(width, height, out).unwrap();
-    img.save("test.png").unwrap();
+    // let img:ImageBuffer<Rgb<u8>, Vec<u8>> = ImageBuffer::from_raw(width, height, out).unwrap();
+    // img.save("test.png").unwrap();
 
 
     
 
-    // let sdl_context = sdl2::init().unwrap();
-    // let video_subsystem = sdl_context.video().unwrap();
+    let sdl_context = sdl2::init().unwrap();
+    let video_subsystem = sdl_context.video().unwrap();
     
-    // let window = video_subsystem.window("边缘检测", width as u32, height as u32)
-    //   .position_centered()
-    //   .build()
-    //   .unwrap();
+    let window = video_subsystem.window("边缘检测", width as u32, height as u32)
+      .position_centered()
+      .build()
+      .unwrap();
 
-    // let mut canvas = window.into_canvas().build().unwrap();
-    // let mut threshold = 127.5;
+    let mut canvas = window.into_canvas().build().unwrap();
 
     //提取边缘
     // let mut buffer = vec![0; buf.len()];
@@ -88,55 +88,108 @@ pub fn main() {
     // let img:ImageBuffer<Rgb<u8>, Vec<u8>> = ImageBuffer::from_raw(width as u32, height as u32, buffer).unwrap();
     // img.save("test.png").unwrap();
 
-    // draw_edge(&buf, width, height, threshold, &mut canvas);
+    let mut threshold1 = 46;
+    let mut threshold2 = 90;
+    let mut threshold3 = 204;
 
-    // 'mainloop: loop {
-    //         for event in sdl_context.event_pump().unwrap().poll_iter() {
-    //             match event {
-    //                 Event::Quit{..} |
-    //                 Event::KeyDown {keycode: Option::Some(Keycode::Escape), ..} =>
-    //                     break 'mainloop,
+    //draw_edge(&buf, width, height, threshold, &mut canvas);
+    draw_contours(&buf, width, height, vec![125, 255], &mut canvas);
 
-    //                 Event::KeyDown {keycode: Option::Some(Keycode::Down), ..} |
-    //                 Event::KeyDown {keycode: Option::Some(Keycode::Left), ..} =>{
-    //                     threshold -= 1.0;
-    //                     draw_edge(&buf, width, height, threshold, &mut canvas);
-    //                 }
+    'mainloop: loop {
+            for event in sdl_context.event_pump().unwrap().poll_iter() {
+                match event {
+                    Event::Quit{..} |
+                    Event::KeyDown {keycode: Option::Some(Keycode::Escape), ..} =>
+                        break 'mainloop,
 
-    //                 Event::KeyDown {keycode: Option::Some(Keycode::Up), ..} |
-    //                 Event::KeyDown {keycode: Option::Some(Keycode::Right), ..} =>{
-    //                     threshold += 1.0;
-    //                     draw_edge(&buf, width, height, threshold, &mut canvas);
-    //                 }
+                    Event::KeyDown {keycode: Option::Some(Keycode::Down), ..} => {
+                        if threshold1 > 1{
+                            threshold1 -= 1;
+                        }
+                        draw_contours(&buf, width, height, vec![threshold1, threshold2, threshold3], &mut canvas);
+                    }
+                    Event::KeyDown {keycode: Option::Some(Keycode::Up), ..} => {
+                        if threshold1 < 255{
+                            threshold1 += 1;
+                        }
+                        draw_contours(&buf, width, height, vec![threshold1, threshold2, threshold3], &mut canvas);
+                    }
 
-    //                 Event::MouseWheel {y, ..} =>{
-    //                     threshold += 
-    //                     match y{
-    //                         -1 => -1.0,
-    //                         1 => 1.0,
-    //                         _ => 0.0
-    //                     };
-    //                     draw_edge(&buf, width, height, threshold, &mut canvas);
-    //                 }
-    //                 _ => {}
-    //             }
-    //         }
-    // }
+
+                    Event::KeyDown {keycode: Option::Some(Keycode::Left), ..} =>{
+                        if threshold3 > 1{
+                            threshold3 -= 1;
+                        }
+                        draw_contours(&buf, width, height, vec![threshold1, threshold2, threshold3], &mut canvas);
+                    }
+
+                    Event::KeyDown {keycode: Option::Some(Keycode::Right), ..} =>{
+                        if threshold3 < 255{
+                            threshold3 += 1;
+                        }
+                        draw_contours(&buf, width, height, vec![threshold1, threshold2, threshold3], &mut canvas);
+                    }
+
+                    Event::MouseWheel {y, ..} =>{
+                        match y{
+                            -1 => threshold2 -= 1,
+                            1 => threshold2 += 1,
+                            _ => ()
+                        };
+                        draw_contours(&buf, width, height, vec![threshold1, threshold2, threshold3], &mut canvas);
+                    }
+                    _ => {}
+                }
+            }
+    }
 }
 
-fn draw_edge(bitmap:&Vec<u8>, width:u32, height:u32, mut threshold:f32, canvas:&mut WindowCanvas){
-    if threshold>255.0{
-        threshold = 255.0;
-    }
-    if threshold<1.0{
-        threshold = 1.0;
-    }
-    println!("阈值:{}", threshold);
+//画轮廓
+fn draw_contours(bitmap:&Vec<u8>, width:u32, height:u32, thresholds:Vec<u8>, canvas:&mut WindowCanvas){
+    println!("thresholds={:?}", thresholds);
+    let start_time = Instant::now();
+    let edges = retina::edge_detect_points(width, height, bitmap, thresholds);
+    println!("边缘检测完成:{}", edges.len());
+    let contours = retina::track_edge(edges);
+    println!("边缘跟踪耗时:{}ms", duration_to_milis(&start_time.elapsed()));
+    let vectors = retina::vectorize(&contours, 20.0);
+
+    canvas.set_draw_color(Color::RGB(0, 0, 0));
+    canvas.clear();
+    let mut rng = rand::thread_rng();
+    
+    // for contour in contours{
+    //     //小于10点的不画
+    //     if contour.len()>20{
+    //         canvas.set_draw_color(Color::RGB(rng.gen_range(100, 255), rng.gen_range(100, 255), rng.gen_range(100, 255)));
+    //         let points:Vec<Point> = contour.iter().map(|point|{ Point::new(point.x as i32, point.y as i32) }).collect();
+    //         canvas.draw_points(points.as_slice()).unwrap();
+    //     }
+    // }
+
+    canvas.set_draw_color(Color::RGB(rng.gen_range(100, 255), rng.gen_range(100, 255), rng.gen_range(100, 255)));
+    let points:Vec<Point> = contours[0].iter().map(|point|{ Point::new(point.x as i32, point.y as i32) }).collect();
+    canvas.draw_points(points.as_slice()).unwrap();
+
+    canvas.set_draw_color(Color::RGB(rng.gen_range(100, 255), rng.gen_range(100, 255), rng.gen_range(100, 255)));
+    let points:Vec<Point> = points.iter().map(|point|{ Point::new(point.x as i32, point.y as i32) }).collect();
+    canvas.draw_lines(points.as_slice()).unwrap();
+    // for i in 0..lines.len(){
+    //     if i+1<lines.len(){
+    //         canvas.draw_line(Point::new(lines[i].x as i32, lines[i].y as i32), Point::new(lines[i+1].x as i32, lines[i+1].y as i32)).unwrap();
+    //     }
+    // }
+
+    canvas.present();
+}
+
+fn draw_edge(bitmap:&Vec<u8>, width:u32, height:u32, mut thresholds:Vec<u8>, canvas:&mut WindowCanvas){
     //提取边缘
     let start_time = Instant::now();
     let mut buffer = vec![0; bitmap.len()];
-    edge_detect(width, height, bitmap, &mut buffer, threshold, &[255, 0, 0]);
+    retina::edge_detect_draw(width, bitmap, &mut buffer, thresholds, &[255, 0, 0]);
     println!("耗时:{}ms", duration_to_milis(&start_time.elapsed()));
+    let start_time = Instant::now();
 
     let img:ImageBuffer<Rgb<u8>, Vec<u8>> = ImageBuffer::from_raw(width, height, buffer).unwrap();
 
@@ -154,6 +207,7 @@ fn draw_edge(bitmap:&Vec<u8>, width:u32, height:u32, mut threshold:f32, canvas:&
         }
     }
     canvas.present();
+    println!("绘制耗时:{}ms", duration_to_milis(&start_time.elapsed()));
 }
 
 pub fn duration_to_milis(duration: &Duration) -> f64 {
