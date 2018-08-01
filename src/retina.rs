@@ -254,9 +254,6 @@ pub fn contours_vectorize(contours: &Vec<Vec<Point>>, min_len:usize, segment:f32
     let mut vectors = vec![];
 
     for contour in contours{
-        if contour.len() == 0{
-            continue;
-        }
         if contour.len()<=min_len{
             vectors.push(contour.clone());
             continue;

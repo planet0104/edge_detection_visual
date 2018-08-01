@@ -1,3 +1,19 @@
+    //提取边缘
+    // let mut buffer = vec![0; buf.len()];
+    // edge_detect(width, height, 24, &buf, &mut buffer, threshold, &[255, 0, 0, 255]);
+    // let img:ImageBuffer<Rgb<u8>, Vec<u8>> = ImageBuffer::from_raw(width as u32, height as u32, buffer).unwrap();
+    // img.save("test.png").unwrap();
+
+    //let mut out = vec![0; buf.len()];
+
+    // retina::facet(width, height, 2, &buf, &mut out);
+
+    // let img:ImageBuffer<Rgb<u8>, Vec<u8>> = ImageBuffer::from_raw(width, height, out).unwrap();
+    // img.save("test.png").unwrap();
+
+        //画线
+    //let points:Vec<Point> = points.iter().map(|point|{ Point::new(point.x as i32, point.y as i32) }).collect();
+    //canvas.draw_lines(points.get(0..50).unwrap()).unwrap();
 
 //相近颜色转换为同一颜色
 pub fn facet(width:u32, height:u32, block_size: u32, src:&Vec<u8>, out:&mut Vec<u8>){

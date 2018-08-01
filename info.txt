@@ -1,3 +1,11 @@
 dll转lib
 .\pexports.exe C:\Windows\SysWOW64\opencl.dll >opencl.def
 .\lib.exe /def:C:\Users\JiaYe\vcpkg\downloads\tools\perl\c\bin\opencl.def /machine:X64
+
+
+(八邻域边缘跟踪与区域生长算法)
+https://blog.csdn.net/sinat_31425585/article/details/78558849
+http://www.imageprocessingplace.com/downloads_V3/root_downloads/tutorials/contour_tracing_Abeer_George_Ghuneim/square.html
+
+图片资源:
+https://weheartit.com/
