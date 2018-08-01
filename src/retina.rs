@@ -33,25 +33,25 @@ pub trait EdgePoints{
 
 impl EdgePoints for Vec<Vec<bool>>{
     fn at(&mut self, x: i16, y: i16) -> &mut bool{
-        &mut self[x as usize][y as usize]
+        &mut self[y as usize][x as usize]
     }
     fn atu(&mut self, x: usize, y: usize) -> &mut bool{
-        &mut self[x][y]
-    }
-    fn width(&self) -> usize{
-        self.len()
+        &mut self[y][x]
     }
     fn height(&self) -> usize{
+        self.len()
+    }
+    fn width(&self) -> usize{
         if self.len()>0{
             self[0].len()
         }else{
             0
         }
     }
-    fn widthi(&self) -> i16{
+    fn heighti(&self) -> i16{
         self.len() as i16
     }
-    fn heighti(&self) -> i16{
+    fn widthi(&self) -> i16{
         if self.len()>0{
             self[0].len() as i16
         }else{
@@ -87,24 +87,6 @@ impl EdgePoints for Vec<Vec<bool>>{
     B和H的输出，根据亮度计算,如果像素亮度超过阈值，B输出255，H输出-255，没有超过阈值，二者都输出0。
 */
 
-
-/// RGB888格式图像边缘检测
-///
-/// # Params
-///
-/// - `width`: 图像宽度.
-/// - `src`: 图像数据.
-/// - `out`: 输出，数组长度和原图像一致
-/// - `threshold`: 阈值 0~255
-/// - `out_color`: 输出颜色
-pub fn edge_detect_draw(width:u32, src:&Vec<u8>, out:&mut Vec<u8>, thresholds:Vec<u8>, out_color: &[u8; 3]){
-    edge_detect(width, src, thresholds, &mut |i|{
-        out[i] = out_color[0];
-        out[i+1] = out_color[1];
-        out[i+2] = out_color[2];
-    });
-}
-
 /// RGB888格式图像边缘检测
 ///
 /// # Params
@@ -113,15 +95,15 @@ pub fn edge_detect_draw(width:u32, src:&Vec<u8>, out:&mut Vec<u8>, thresholds:Ve
 /// - `height`: 图像宽度.
 /// - `src`: 图像数据.
 /// - `thresholds`: 阈值 0~255
-/// 使用 result[x][y] 来获取点
-pub fn edge_detect_points(width:u32, height:u32, src:&Vec<u8>, thresholds:Vec<u8>) -> Vec<Vec<bool>>{
+/// 使用 result[y][x] 来获取点
+pub fn edge_detect(width:u32, height:u32, src:&Vec<u8>, thresholds:Vec<u8>) -> Vec<Vec<bool>>{
 
-    let mut edges = vec![vec![false; height as usize]; width as usize];
+    let mut edges = vec![vec![false; width as usize]; height as usize];
 
-    edge_detect(width, src, thresholds, &mut |i|{
+    edge_detect_f(width, src, thresholds, &mut |i|{
         let x = i/3%width as usize;
         let y = i/3/width as usize;
-        edges[x][y] = true;
+        *edges.atu(x, y) = true;
     });
 
     edges
@@ -135,7 +117,7 @@ pub fn edge_detect_points(width:u32, height:u32, src:&Vec<u8>, thresholds:Vec<u8
 /// - `src`: 图像数据.
 /// - `threshold`: 阈值 0~255
 /// - `callback`: 检测到点的回调函数
-pub fn edge_detect<F: FnMut(usize)>(width:u32, src:&Vec<u8>, thresholds:Vec<u8>, callback: &mut F){
+fn edge_detect_f<F: FnMut(usize)>(width:u32, src:&Vec<u8>, thresholds:Vec<u8>, callback: &mut F){
     let bytepp = 3; //RGB888
     let size = src.len();
     let src = src.as_slice();
@@ -179,280 +161,129 @@ fn calc_horizontal_cell(r: u8, g:u8, b:u8, threshold: f32) -> f32{
     }
 }
 
-pub fn vectorize(contours: &Vec<Vec<Point>>, min_distance:f32) -> Vec<Vec<Point>>{
-    let mut lines = vec![];
-
-    for contour in contours{
-        let mut points = vec![contour[0].clone()];
-        for i in 1..contour.len(){
-            let pi = points.len()-1;
-            let dist = (points[pi].x - contour[i].x)*(points[pi].x - contour[i].x)+(points[pi].y - contour[i].y)*(points[pi].y - contour[i].y);
-            if (dist as f32).sqrt() >= min_distance{
-                points.push(contour[i].clone());
-            }
-        }
-
-        lines.push(points);
-    }
-
-    lines
-}
-
-//相近颜色转换为同一颜色
-pub fn facet(width:u32, height:u32, block_size: u32, src:&Vec<u8>, out:&mut Vec<u8>){
-    // let count_x = width/block_size;
-    // let count_y = height/block_size;
-
-    // for x in 0..count_x+1{
-    //     for y in 0..count_y+1{
-    //         facet_rect2(width, height, src, out, &[x*block_size, y*block_size, block_size, block_size], 5000, 2);
-    //     }
-    // }
-
-    
-    facet_rect(width, height, src, out, &[0, 0, width, height], 900);
-
-    // let block_size = 4;
-    // let count_x = width/block_size;
-    // let count_y = height/block_size;
-
-    // for x in 0..count_x+1{
-    //     for y in 0..count_y+1{
-    //         facet_rect2(width, height, src, out, &[x*block_size, y*block_size, block_size, block_size], 4000, 3);
-    //     }
-    // }
-}
-
-//将区域中的颜色数量减少N
-
-// 参数说明
-// D 颜色相似的最小距离
-// N 区域中剩余最多颜色数
-
-// 第一步将第一个像素放入 species,
-// 检查第二个像素, 查看是否和species中的某个差距小于D，小于将其放入对应的species_map，否则也将其放入species
-// 区域中所有像素都检查一遍
-// 
-// 循环species_map, 计算平均色。
-// 
-// species_map前N个，保留平均色
-// species_map剩余的，计算其平均色与species_map前N个的距离，哪个距离近，就用前N个中哪个颜色替换。
-fn facet_rect2(width:u32, _height:u32, src:&Vec<u8>, out:&mut Vec<u8>, rect: &[u32; 4], d: u32, n: usize){
-    let i = (rect[1]*width*3+rect[0]*3) as usize;
-    if i>=src.len(){
-        return;
-    }
-    let mut species = vec![(src[i], src[i+1], src[i+2])];
-    let mut species_map = vec![];
-    let mut colors_map = vec![];
-
-    for x in rect[0]..rect[0]+rect[2]{
-        for y in rect[1]..rect[1]+rect[3]{
-            let i = (y*width*3+x*3) as usize;
-
-            if i>=src.len(){
-                continue;
-            }
-            
-            let (r,g,b) = (src[i],  src[i+1],  src[i+2]);
-
-            let mut si = -1;
-
-            for sp in 0..species.len(){
-                let dist = color_diff(r, g, b, species[sp].0, species[sp].1, species[sp].2);
-                if dist<d{
-                    si = sp as i32;
-                    break;
-                }
-            }
-
-            if si == -1{
-                si = species.len() as i32;
-                species.push((r, g, b));
-            }
-
-            let si = si as usize;
-
-            if species_map.len()<(si+1){
-                species_map.push(vec![]);
-            }
-
-            species_map[si].push((r, g, b, i));
-        }
-    }
-
-    //计算平均色
-    for pixels in &species_map{
-        let mut tr = 0;
-        let mut tg = 0;
-        let mut tb = 0;
-        for pixel in pixels{
-            tr += pixel.0 as u32;
-            tg += pixel.1 as u32;
-            tb += pixel.2 as u32;
-        }
-        let len = pixels.len() as u32;
-        tr = tr/len;
-        tg = tg/len;
-        tb = tb/len;
-        colors_map.push((tr as u8, tg as u8, tb as u8));
-    }
-
-    //计算平均色和前N个颜色的距离
-    if colors_map.len()>n{
-        for i in n..colors_map.len(){
-            let mut fit_index = 0;
-            let mut min_dist = ::std::u32::MAX;
-            for g in 0..n{
-                let dist = color_diff(colors_map[g].0, colors_map[g].1, colors_map[g].2,colors_map[i].0, colors_map[i].1, colors_map[i].2);
-                if dist<min_dist{
-                    min_dist = dist;
-                    fit_index = g;
-                }
-            }
-            colors_map[i].0 = colors_map[fit_index].0;
-            colors_map[i].1 = colors_map[fit_index].1;
-            colors_map[i].2 = colors_map[fit_index].2;
-        }
-    }
-
-    let mut mapi = 0;
-    for pixels in &species_map{
-        for pixel in pixels{
-            let i = pixel.3 as usize;
-            out[i] = colors_map[mapi].0; 
-            out[i+1] = colors_map[mapi].1; 
-            out[i+2] = colors_map[mapi].2; 
-        }
-        mapi += 1;
-    }
-}
-
-fn facet_rect(width:u32, _height:u32, src:&Vec<u8>, out:&mut Vec<u8>, rect: &[u32; 4], distance: u32){
-
-    let i = (rect[1]*width*3+rect[0]*3) as usize;
-    if i>=src.len(){
-        return;
-    }
-    let mut species = vec![(src[i], src[i+1], src[i+2])];
-    let mut species_map = vec![];
-
-    for x in rect[0]..rect[0]+rect[2]{
-        for y in rect[1]..rect[1]+rect[3]{
-            let i = (y*width*3+x*3) as usize;
-
-            if i>=src.len(){
-                continue;
-            }
-            
-            let (r,g,b) = (src[i],  src[i+1],  src[i+2]);
-
-            let mut si = -1;
-
-            for sp in 0..species.len(){
-                let dist = color_diff(r, g, b, species[sp].0, species[sp].1, species[sp].2);
-                if dist<distance{
-                    si = sp as i32;
-                    break;
-                }
-            }
-
-            if si == -1{
-                si = species.len() as i32;
-                species.push((r, g, b));
-            }
-
-            let si = si as usize;
-
-            if species_map.len()<(si+1){
-                species_map.push(vec![]);
-            }
-
-            species_map[si].push((r, g, b, i));
-        }
-    }
-
-    //计算平均色
-    for pixels in &species_map{
-        let mut tr = 0;
-        let mut tg = 0;
-        let mut tb = 0;
-        for pixel in pixels{
-            tr += pixel.0 as u32;
-            tg += pixel.1 as u32;
-            tb += pixel.2 as u32;
-        }
-        let len = pixels.len() as u32;
-        tr = tr/len;
-        tg = tg/len;
-        tb = tb/len;
-        for pixel in pixels{
-            let i = pixel.3 as usize;
-            out[i] = tr as u8; 
-            out[i+1] = tg as u8; 
-            out[i+2] = tb as u8; 
-        }
-    }
-}
-
 //简单计算颜色距离
 //最大距离: 255*255*3=195075 二进制: 00000000_00000010_11111010_00000011
-fn color_diff(r1: u8, g1:u8, b1: u8, r2: u8, g2:u8, b2: u8) -> u32{
-    ((r2 as i32-r1 as i32)*(r2 as i32-r1 as i32) + (g2 as i32-g1 as i32)*(g2 as i32-g1 as i32) + (b2 as i32-b1 as i32)*(b2 as i32-b1 as i32)) as u32
-}
+// fn color_diff(r1: u8, g1:u8, b1: u8, r2: u8, g2:u8, b2: u8) -> u32{
+//     ((r2 as i32-r1 as i32)*(r2 as i32-r1 as i32) + (g2 as i32-g1 as i32)*(g2 as i32-g1 as i32) + (b2 as i32-b1 as i32)*(b2 as i32-b1 as i32)) as u32
+// }
 
 // 8邻域
 const NEIGHBORS:[Point; 8] = [ Point{ x:0, y:1 }, Point{ x:1, y:1}, Point{x:1, y:0}, Point{x:1, y:-1}, 
                              Point{x:0, y:-1}, Point{x:-1, y:-1}, Point{x:-1, y:0}, Point{x:-1, y:1} ];
 
-pub fn track_edge(mut edges:Vec<Vec<bool>>)->Vec<Vec<Point>>{
-    let mut seeds:Vec<Point> = vec![];
-    let mut contours: Vec<Vec<Point>> = vec![];
-    for x in 0..edges.height(){
-		for y in 0..edges.width(){    
-	//for x in 0..edges.width(){
-//		for y in 0..edges.height(){
-			//如果当前点为轮廓点
-			if edges[x][y]{
-                let mut contour: Vec<Point> = vec![];
-				// 当前点清零
-                edges[x][y] = false;
+//八邻域边缘跟踪
+pub fn edge_track(mut edges:Vec<Vec<bool>>)->Vec<Vec<Point>>{
+	let mut result = vec![];
+
+    let mut curr_d:i32 = 0;
  
-				// 存入种子点及轮廓
-				seeds.push(Point::from_usize(x, y));
-				contour.push(Point::from_usize(x, y));
+	// 边缘跟踪
+	for x in 1..edges.width()-1{
+        for y in  1..edges.height()-1{
+			// 起始点及当前点
+			let mut b_pt = Point::from_usize(x, y);
+			let mut c_pt = Point::from_usize(x, y);
  
-				// 区域生长
-				while seeds.len() > 0{
-					// 遍历8邻域
-					for k in 0..8{
-						// 更新当前点坐标
-						let new_x = seeds[0].x + NEIGHBORS[k].x;
-						let new_y = seeds[0].y + NEIGHBORS[k].y;
+			// 如果当前点为前景点
+			if *edges.atu(x, y){
+                let mut edge_t = vec![];
+				//let mut tra_flag = false;
+				// 存入
+				edge_t.push(c_pt.clone());
+				*edges.at(c_pt.x, c_pt.y) = false;    // 用过的点直接给设置为0
  
-						// 边界界定
-						if (new_x >= 0)  && (new_x <= edges.widthi() - 1) &&
-							(new_y >= 0) && (new_y <= edges.heighti() - 1){
-							if *edges.at(new_x, new_y){
-								// 当前点清零
-                                *edges.at(new_x, new_y) = false;
- 
-								// 存入种子点及轮廓
-								seeds.push(Point::new(new_x, new_y));
-								contour.push(Point::new(new_x, new_y));
-							}// end if
+				// 进行跟踪
+				loop{
+					// 循环八次
+                    let mut counts = 0;
+					while counts<8{
+						// 防止索引出界
+						if curr_d >= 8{
+							curr_d -= 8;
 						}
-					} // end for
+						if curr_d < 0{
+							curr_d += 8;
+						}
  
-					// 删除第一个元素
-					seeds.remove(0);
+						// 当前点坐标
+						// 跟踪的过程，应该是个连续的过程，需要不停的更新搜索的root点
+						c_pt = Point::new(b_pt.x + NEIGHBORS[curr_d as usize].x, b_pt.y + NEIGHBORS[curr_d as usize].y);
  
-				}// end while
+						// 边界判断
+						if (c_pt.x > 0) && (c_pt.x < edges.widthi() - 1) &&
+							(c_pt.y > 0) && (c_pt.y < edges.heighti() - 1)
+						{
+							// 如果存在边缘
+							if *edges.at(c_pt.x, c_pt.y){
+								curr_d -= 2;   // 更新当前方向
+								edge_t.push(c_pt.clone());
+								*edges.at(c_pt.x, c_pt.y) = false;
  
-				contours.push(contour);
- 
-			}// end if
+								// 更新b_pt:跟踪的root点
+								b_pt.x = c_pt.x;
+								b_pt.y = c_pt.y;
+
+								break;   // 跳出for循环
+							}
+						}
+						curr_d += 1;
+                        counts += 1;
+					}   // end for
+					// 跟踪的终止条件：如果8邻域都不存在边缘
+					if 8 == counts{
+						// 清零
+						curr_d = 0;
+						//tra_flag = true;
+						result.push(edge_t);
+						break;
+					}
+				}  // end if
+			}  // end while
 		}
     }
-    contours
+
+    result
+}
+
+/// 边缘矢量化 减少点数
+/// # Params
+/// - `contours`: 跟踪到的边缘
+/// - `segment`: 线段长度.
+/// 返回矢量化以后的点
+pub fn contours_vectorize(contours: &Vec<Vec<Point>>, min_len:usize, segment:f32) -> Vec<Vec<Point>>{
+    let mut vectors = vec![];
+
+    for contour in contours{
+        if contour.len() == 0{
+            continue;
+        }
+        if contour.len()<=min_len{
+            vectors.push(contour.clone());
+            continue;
+        }
+        let mut points = vec![contour[0].clone()];
+        for i in 1..contour.len(){
+            let pi = points.len()-1;
+            let dist = (points[pi].x - contour[i].x)*(points[pi].x - contour[i].x)+(points[pi].y - contour[i].y)*(points[pi].y - contour[i].y);
+            if (dist as f32).sqrt() >= segment{
+                points.push(contour[i].clone());
+            }
+        }
+
+        //只有一个点补充一个点
+        if points.len() == 1{
+            points.push(contour[0].clone());
+        }else{
+            //points最后一个点如果不等于轮廓的最后一个点, 补充最后一个点
+            let lenp = points.len()-1;
+            let lenc = contour.len()-1;
+            if points[lenp].x != contour[lenc].x || points[lenp].y != contour[lenc].y{
+                points.push(contour[lenc].clone());
+            }
+        }
+
+        vectors.push(points);
+    }
+
+    vectors
 }

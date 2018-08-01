@@ -57,7 +57,7 @@ https://weheartit.com/
  */
 pub fn main() {
     //tubingen
-    let img = image::open("maio.png").unwrap().to_rgb();
+    let img = image::open("sfz.png").unwrap().to_rgb();
 
     let (width, height) = (img.width(), img.height());
     println!("width={},height={}", width, height);
@@ -147,68 +147,36 @@ pub fn main() {
 
 //画轮廓
 fn draw_contours(bitmap:&Vec<u8>, width:u32, height:u32, thresholds:Vec<u8>, canvas:&mut WindowCanvas){
+    let thresholds = vec![thresholds.first().unwrap().clone()];
     println!("thresholds={:?}", thresholds);
     let start_time = Instant::now();
-    let edges = retina::edge_detect_points(width, height, bitmap, thresholds);
-    println!("边缘检测完成:{}", edges.len());
-    let contours = retina::track_edge(edges);
+    let edges = retina::edge_detect(width, height, bitmap, thresholds);
+    println!("边缘检测耗时:{}ms", duration_to_milis(&start_time.elapsed()));
+    let start_time = Instant::now();
+    let contours = retina::edge_track(edges);
     println!("边缘跟踪耗时:{}ms", duration_to_milis(&start_time.elapsed()));
-    let vectors = retina::vectorize(&contours, 20.0);
+    let start_time = Instant::now();
+    let vectors = retina::contours_vectorize(&contours, 80, 10.0);
+    println!("向量化耗时:{}ms", duration_to_milis(&start_time.elapsed()));
 
     canvas.set_draw_color(Color::RGB(0, 0, 0));
     canvas.clear();
     let mut rng = rand::thread_rng();
-    
-    // for contour in contours{
-    //     //小于10点的不画
-    //     if contour.len()>20{
-    //         canvas.set_draw_color(Color::RGB(rng.gen_range(100, 255), rng.gen_range(100, 255), rng.gen_range(100, 255)));
-    //         let points:Vec<Point> = contour.iter().map(|point|{ Point::new(point.x as i32, point.y as i32) }).collect();
-    //         canvas.draw_points(points.as_slice()).unwrap();
-    //     }
-    // }
 
-    canvas.set_draw_color(Color::RGB(rng.gen_range(100, 255), rng.gen_range(100, 255), rng.gen_range(100, 255)));
-    let points:Vec<Point> = contours[0].iter().map(|point|{ Point::new(point.x as i32, point.y as i32) }).collect();
-    canvas.draw_points(points.as_slice()).unwrap();
+    //画线
+    //let points:Vec<Point> = points.iter().map(|point|{ Point::new(point.x as i32, point.y as i32) }).collect();
+    //canvas.draw_lines(points.get(0..50).unwrap()).unwrap();
 
-    canvas.set_draw_color(Color::RGB(rng.gen_range(100, 255), rng.gen_range(100, 255), rng.gen_range(100, 255)));
-    let points:Vec<Point> = points.iter().map(|point|{ Point::new(point.x as i32, point.y as i32) }).collect();
-    canvas.draw_lines(points.as_slice()).unwrap();
-    // for i in 0..lines.len(){
-    //     if i+1<lines.len(){
-    //         canvas.draw_line(Point::new(lines[i].x as i32, lines[i].y as i32), Point::new(lines[i+1].x as i32, lines[i+1].y as i32)).unwrap();
-    //     }
-    // }
-
-    canvas.present();
-}
-
-fn draw_edge(bitmap:&Vec<u8>, width:u32, height:u32, mut thresholds:Vec<u8>, canvas:&mut WindowCanvas){
-    //提取边缘
-    let start_time = Instant::now();
-    let mut buffer = vec![0; bitmap.len()];
-    retina::edge_detect_draw(width, bitmap, &mut buffer, thresholds, &[255, 0, 0]);
-    println!("耗时:{}ms", duration_to_milis(&start_time.elapsed()));
-    let start_time = Instant::now();
-
-    let img:ImageBuffer<Rgb<u8>, Vec<u8>> = ImageBuffer::from_raw(width, height, buffer).unwrap();
-
-    //清空窗口
-    canvas.set_draw_color(Color::RGB(0, 0, 0));
-    canvas.clear();
-    //绘制到窗口
-    canvas.set_draw_color(Color::RGB(255, 255, 255));
-    for y in 0..height{
-        for x in 0..width{
-            let pixel = img.get_pixel(x, y);
-            if pixel[0] == 255{
-                canvas.draw_point(Point::new(x as i32, y as i32)).unwrap();
+    for lines in vectors{
+        canvas.set_draw_color(Color::RGB(rng.gen_range(100, 255), rng.gen_range(100, 255), rng.gen_range(100, 255)));
+        for i in 0..lines.len(){
+            if i+1<lines.len(){
+                canvas.draw_line(Point::new(lines[i].x as i32, lines[i].y as i32), Point::new(lines[i+1].x as i32, lines[i+1].y as i32)).unwrap();
             }
         }
     }
+
     canvas.present();
-    println!("绘制耗时:{}ms", duration_to_milis(&start_time.elapsed()));
 }
 
 pub fn duration_to_milis(duration: &Duration) -> f64 {
