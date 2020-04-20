@@ -2,11 +2,12 @@
 name = "edge_detection_visual"
 version = "0.1.0"
 authors = ["Jia Ye <planet0104@gmail.com>"]
+edition = "2018"
 
 [dependencies]
-image = "*"
-rand = "*"
+image = "0.21.1"
+rand = "0.6.5"
+svg = "0.5.12"
+mengine = { git = "https://github.com/planet0104/mengine", tag="0.6.6" }
 
-[dependencies.sdl2]
-version = "0.31.0"
-features = ["bundled", "static-link"]
+#mengine = { path = "../mengine", tag="0.6.6" }

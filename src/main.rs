@@ -1,17 +1,9 @@
-extern crate sdl2;
-extern crate image;
-extern crate rand;
-
 use rand::Rng;
 
 mod retina;
-
-use sdl2::event::Event;
-use sdl2::keyboard::Keycode;
-use sdl2::render::WindowCanvas;
-use sdl2::pixels::Color;
-use sdl2::rect::Point;
 use std::time::{Duration, Instant};
+use svg::node::element::Line;
+use svg::Document;
 
 // 一、照片变卡通
 // 二、照片变矢量图
@@ -50,41 +42,68 @@ https://blog.csdn.net/qq_33200959/article/details/76072639
             2、每次检测完成，将较短的线条删除
 
  */
-pub fn main() {
-    //tubingen
-    let img = image::open("lena.jpg").unwrap().to_rgb();
 
-    let (width, height) = (img.width(), img.height());
-    println!("width={},height={}", width, height);
+const WIDTH:f64 = 640.0;
+const HEIGHT:f64 = 480.0;
 
-    let buf = img.into_raw();
+use mengine::{Window, Image, Settings, Graphics, AssetsType, Assets, State};
+use std::io::Result;
 
-    let sdl_context = sdl2::init().unwrap();
-    let video_subsystem = sdl_context.video().unwrap();
-    
-    let window = video_subsystem.window("边缘检测", width, height)
-      .position_centered()
-      .build()
-      .unwrap();
+struct App {
+    vectors_image: Option<Image>
+}
 
-    let mut canvas = window.into_canvas().build().unwrap();
-
-    draw_contours(&buf, width, height, vec![40, 130], &mut canvas);
-
-    'mainloop: loop {
-            for event in sdl_context.event_pump().unwrap().poll_iter() {
-                match event {
-                    Event::Quit{..} |
-                    Event::KeyDown {keycode: Option::Some(Keycode::Escape), ..} =>
-                        break 'mainloop,
-                    _ => {}
-                }
-            }
+impl State for App {
+    fn new(window: &mut Window) -> Self {
+        let image = image::open("luo1.png").unwrap().to_rgb();
+        let (width, height) = (image.width(), image.height());
+        let vectors = draw_contours(&image.into_raw(), width, height, vec![40, 130]);
+        window.load_svg("vectors", vectors);
+        App {
+            vectors_image: None
+        }
     }
+
+    fn on_assets_load(
+        &mut self,
+        path: &str,
+        _: AssetsType,
+        assets: Result<Assets>,
+        _window: &mut Window,
+    ) {
+        if path == "vectors" {
+            if let Ok(assets) = assets {
+                self.vectors_image = Some(assets.as_image().unwrap());
+            }
+        }
+    }
+
+    fn draw(&mut self, g: &mut Graphics, _window: &mut Window) {
+        g.fill_rect(&[0, 0, 0, 255], 0., 0., WIDTH, HEIGHT);
+        if let Some(image) = self.vectors_image.as_ref(){
+            g.draw_image_at(None, image, 0.0, 0.0);
+        }
+    }
+
+    fn update(&mut self, _window: &mut Window) {}
+}
+
+fn main() {
+    mengine::run::<App>(
+        "边缘检测",
+        WIDTH,
+        HEIGHT,
+        Settings {
+            show_ups_fps: true,
+            background_color: Some([255, 255, 255, 255]),
+            draw_center: false,
+            ..Default::default()
+        },
+    );
 }
 
 //画轮廓
-fn draw_contours(bitmap:&Vec<u8>, width:u32, height:u32, thresholds:Vec<u8>, canvas:&mut WindowCanvas){
+fn draw_contours(bitmap:&Vec<u8>, width:u32, height:u32, thresholds:Vec<u8>) -> String{
     println!("thresholds={:?}", thresholds);
     let start_time = Instant::now();
     let edges = retina::edge_detect(width, height, bitmap, thresholds);
@@ -93,21 +112,55 @@ fn draw_contours(bitmap:&Vec<u8>, width:u32, height:u32, thresholds:Vec<u8>, can
     let contours = retina::edge_track(edges);
     println!("边缘跟踪耗时:{}ms", duration_to_milis(&start_time.elapsed()));
     let start_time = Instant::now();
-    let vectors = retina::contours_vectorize(&contours, 5, 3.0);
+    let vectors = retina::contours_vectorize(&contours, 5, 5.0);
     println!("向量化耗时:{}ms", duration_to_milis(&start_time.elapsed()));
+    
+    let start_time = Instant::now();
 
-    for lines in vectors{
+    let mut document = Document::new()
+            .set("viewBox", (0, 0, WIDTH, HEIGHT))
+            .set("width", WIDTH)
+            .set("height", HEIGHT);
+    
+    let mut line_count = 0;
+    for lines in &vectors{
         let mut rng = rand::thread_rng();
-        canvas.set_draw_color(Color::RGB(rng.gen_range(100, 255), rng.gen_range(100, 255), rng.gen_range(100, 255)));
+        let color:&[u8; 3] = &[rng.gen_range(100, 255), rng.gen_range(100, 255), rng.gen_range(100, 255)];
         for i in 0..lines.len(){
             if i+1<lines.len(){
-                canvas.draw_line(Point::new(lines[i].x as i32, lines[i].y as i32), Point::new(lines[i+1].x as i32, lines[i+1].y as i32)).unwrap();
+                line_count += 1;
+                document = svg_draw_line(document, (lines[i].x as i32, lines[i].y as i32), (lines[i+1].x as i32, lines[i+1].y as i32), color, 0.1);
             }
         }
     }
-    canvas.present();
+    println!("绘图耗时:{}ms 线条数量:{}", duration_to_milis(&start_time.elapsed()), line_count);
+    document.to_string()
 }
 
 pub fn duration_to_milis(duration: &Duration) -> f64 {
     duration.as_secs() as f64 * 1000.0 + duration.subsec_nanos() as f64 / 1_000_000.0
+}
+
+fn svg_draw_line(
+    document: Document,
+    start: (i32, i32),
+    end: (i32, i32),
+    color: &[u8; 3],
+    stroke_width: f32,
+) -> Document {
+    //<line x1="0" y1="0" x2="300" y2="300" style="stroke:rgb(99,99,99);stroke-width:2"/>
+    document.add(
+        Line::new()
+            .set("x1", start.0)
+            .set("y1", start.1)
+            .set("x2", end.0)
+            .set("y2", end.1)
+            .set(
+                "style",
+                format!(
+                    "stroke:rgb({},{},{});stroke-width:{}",
+                    color[0], color[1], color[2], stroke_width
+                ),
+            ),
+    )
 }
