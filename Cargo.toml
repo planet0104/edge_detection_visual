@@ -5,9 +5,8 @@ authors = ["Jia Ye <planet0104@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-image = "0.21.1"
-rand = "0.6.5"
-svg = "0.5.12"
-mengine = { git = "https://github.com/planet0104/mengine", tag="0.6.6" }
-
-#mengine = { path = "../mengine", tag="0.6.6" }
+image = "0.23.14"
+rand = "0.8.3"
+minifb = "0.19.2"
+imageproc = "0.22.0"
+blit = "0.5"

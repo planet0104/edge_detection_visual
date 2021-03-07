@@ -248,7 +248,7 @@ pub fn edge_track(mut edges:Vec<Vec<bool>>)->Vec<Vec<Point>>{
 /// 边缘矢量化 减少点数
 /// # Params
 /// - `contours`: 跟踪到的边缘
-/// - `min_len`: 点数少于min_len的不处理.
+/// - `min_len`: 小于这个长度(像素)的线段删除.
 /// - `segment`: 线段长度.
 /// 返回矢量化以后的点
 pub fn contours_vectorize(contours: &Vec<Vec<Point>>, min_len:usize, segment:f32) -> Vec<Vec<Point>>{
@@ -256,7 +256,7 @@ pub fn contours_vectorize(contours: &Vec<Vec<Point>>, min_len:usize, segment:f32
 
     for contour in contours{
         if contour.len()<=min_len{
-            vectors.push(contour.clone());
+            // vectors.push(contour.clone());
             continue;
         }
         let mut points = vec![contour[0].clone()];
