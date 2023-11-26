@@ -1,13 +1,26 @@
-use image::{ImageBuffer, Rgb, RgbImage, DynamicImage, GenericImage};
-use rand::Rng;
+use image::RgbaImage;
+use image::buffer::ConvertBuffer;
+use image::{ImageBuffer, Rgb, RgbImage, DynamicImage};
+use slint::LogicalSize;
+use slint::SharedPixelBuffer;
 mod retina;
 use std::time::{Duration, Instant};
-use minifb::{Key, Window, WindowOptions};
 use imageproc::drawing::*;
-use blit::*;
 use imageproc::hough::*;
+use anyhow::Result;
 
-pub fn main() {
+slint::slint!{
+    export component HelloWorld {
+        in property <image> img;
+        Image {
+            width: 100%;
+            height: 100%;
+            source: img;
+        }
+    }
+}
+
+pub fn main() -> Result<()> {
     const MASK_COLOR: u32 = 0xFF00FF;
 
     let img_name = "book2.jpg";
@@ -103,29 +116,13 @@ pub fn main() {
     //     draw_hollow_ellipse_mut(&mut img_rgb, (corner.x as i32, corner.y as i32), 5, 5, Rgb([255, 255, 0]));
     // }
 
-    let mut buffer: Vec<u32> = vec![0; (width * height) as usize];
-
-    let mut window = Window::new(
-        "边缘检测 - ESC to exit",
-        width as usize,
-        height as usize,
-        WindowOptions::default(),
-    )
-    .unwrap_or_else(|e| {
-        panic!("{}", e);
-    });
-
-    // Limit to max ~60 fps update rate
-    window.limit_update_rate(Some(std::time::Duration::from_micros(16600)));
-
-    while window.is_open() && !window.is_key_down(Key::Escape) {
-        img_lines.blit(&mut buffer, width as usize, (0, 0), Color::from_u32(MASK_COLOR));
-
-        // We unwrap here as we want this code to exit if it fails. Real applications may want to handle this in a different way
-        window
-            .update_with_buffer(&buffer, width as usize, height as usize)
-            .unwrap();
-    }
+    let app = HelloWorld::new()?;
+    app.window().set_size(LogicalSize::new(width as f32, height as f32));
+    let rgb_image:RgbaImage = img_lines.convert();
+    let buf = SharedPixelBuffer::clone_from_slice(&rgb_image, rgb_image.width(), rgb_image.height());
+    app.set_img(slint::Image::from_rgba8(buf));
+    let _ = app.run()?;
+    Ok(())
 }
 
 //画轮廓
